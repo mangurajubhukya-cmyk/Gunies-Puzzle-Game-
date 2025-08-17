@@ -1,0 +1,313 @@
+{
+  "appId": "com.yourname.mypuzzleapp",
+  "appName": "Puzzle Game",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
+{
+  "name": "my-puzzle-app",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "live-server www",
+    "build": "echo 'No build needed for static HTML'"
+  },
+  "dependencies": {
+    "@capacitor/core": "^5.0.0"
+  }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>🧩 Sliding Puzzle Game App</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #fde3ff 0%, #c2e9fb 100%);
+    min-height: 100vh;
+    margin: 0;
+    text-align: center;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 36px;
+    color: #2d3e61;
+    text-shadow: 2px 2px 8px #ebeef7;
+    letter-spacing: 2px;
+    margin: 0 0 20px;
+  }
+  #level-buttons {
+    margin-bottom: 12px;
+  }
+  #level-buttons button {
+    background: #f5f6fa;
+    border: none;
+    border-radius: 6px;
+    box-shadow: 1px 2px 8px #d2e4ff inset;
+    color: #2d3e61;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 0 6px;
+    outline: none;
+    padding: 8px 18px;
+    transition: background 0.3s, color 0.3s;
+  }
+  #level-buttons button:hover,
+  #level-buttons button.active {
+    background: #b5e0ff;
+    color: #0d2149;
+    font-weight: 600;
+    box-shadow: 0 0 10px #81a9ff;
+  }
+  #shuffle-button {
+    margin: 15px 0 20px;
+    background: #ef5a5a;
+    color: white;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 30px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px #ef5a5aaa;
+    transition: background 0.3s;
+  }
+  #shuffle-button:hover {
+    background: #f07a7a;
+  }
+  #reward {
+    font-size: 20px;
+    color: #e84d39;
+    font-weight: bold;
+    margin-bottom: 18px;
+    min-height: 28px;
+    text-shadow: 1px 2px 8px #fde4ec;
+    transition: opacity 0.5s ease-in-out;
+  }
+  #puzzle {
+    display: grid;
+    gap: 7px;
+    margin: 0 auto 20px;
+    width: max-content;
+    background: rgba(255,255,255,0.13);
+    box-shadow: 0 8px 20px #d7e1ff;
+    border-radius: 15px;
+    padding: 20px;
+  }
+  .tile {
+    background: linear-gradient(145deg, #f0a500 0%, #ef5a5a 100%);
+    color: #fff;
+    font-size: 26px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 4px 20px #d2b2a9;
+    transition: transform 0.15s, background 0.22s, color 0.22s;
+    border: 2px solid #fff9e6;
+    letter-spacing: 2px;
+  }
+  .tile:hover {
+    background: linear-gradient(145deg, #ef5a5a 0%, #f0a500 100%);
+    color: #2d3e61;
+    transform: scale(1.09);
+    box-shadow: 0 10px 30px #fea;
+    z-index: 2;
+  }
+  .empty {
+    background: linear-gradient(120deg, #e9ecef 70%, #c8dbe7 100%);
+    cursor: default;
+    box-shadow: none;
+    border: 2px dashed #b9c3ce;
+  }
+  #timer, #moves {
+    font-size: 22px;
+    font-weight: 500;
+    color: #4b4b9f;
+    margin: 6px;
+    text-shadow: 1px 1px 4px #ebeef7;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🧩 Sliding Puzzle Game</h1>
+
+<div id="level-buttons"></div>
+<button id="shuffle-button" onclick="shuffleTiles()">Shuffle & Start</button>
+<div id="reward"></div>
+
+<div id="timer">⏱ Time: 0m 0s</div>
+<div id="moves">Moves: 0</div>
+<div id="puzzle"></div>
+
+<script>
+  let size = 4;
+  let tiles = [];
+  let moveCount = 0;
+  let timerInterval;
+  let startTime = null;
+  let gameActive = false;
+
+  const levels = [3,4,5,6,7,8];
+  const levelButtonsDiv = document.getElementById('level-buttons');
+
+  levels.forEach(level => {
+    const btn = document.createElement('button');
+    btn.textContent = `${level}×${level}`;
+    btn.onclick = () => setLevel(level);
+    btn.id = `level-btn-${level}`;
+    levelButtonsDiv.appendChild(btn);
+  });
+
+  function setLevel(newSize) {
+    size = newSize;
+    highlightActiveLevel();
+    initializeGame();
+  }
+
+  function highlightActiveLevel() {
+    levels.forEach(level => {
+      const btn = document.getElementById(`level-btn-${level}`);
+      btn.classList.toggle('active', level === size);
+    });
+  }
+
+  function initializeGame() {
+    tiles = [];
+    for(let i = 1; i < size*size; i++) {
+      tiles.push(i);
+    }
+    tiles.push(null);
+    moveCount = 0;
+    gameActive = false;
+    startTime = null;
+    clearInterval(timerInterval);
+    document.getElementById('timer').textContent = '⏱ Time: 0m 0s';
+    document.getElementById('moves').textContent = 'Moves: 0';
+    showReward('');
+    renderTiles();
+  }
+
+  function renderTiles() {
+    const puzzle = document.getElementById('puzzle');
+    puzzle.style.gridTemplateColumns = `repeat(${size}, 74px)`;
+    puzzle.style.gridTemplateRows = `repeat(${size}, 74px)`;
+    puzzle.innerHTML = '';
+    tiles.forEach((num, idx) => {
+      const tile = document.createElement('div');
+      tile.classList.add('tile');
+      if(num === null) {
+        tile.classList.add('empty');
+      } else {
+        tile.textContent = num;
+        tile.onclick = () => moveTile(idx);
+      }
+      puzzle.appendChild(tile);
+    });
+  }
+
+  function moveTile(index) {
+    if(!gameActive) return;
+    const emptyIndex = tiles.indexOf(null);
+    const validMoves = [emptyIndex -1, emptyIndex +1, emptyIndex - size, emptyIndex + size];
+    if(validMoves.includes(index) && isAdjacent(index, emptyIndex)) {
+      [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+      moveCount++;
+      document.getElementById('moves').textContent = `Moves: ${moveCount}`;
+      renderTiles();
+      checkWin();
+    }
+  }
+
+  function isAdjacent(i1, i2) {
+    const r1 = Math.floor(i1 / size);
+    const r2 = Math.floor(i2 / size);
+    const c1 = i1 % size;
+    const c2 = i2 % size;
+    return Math.abs(r1 - r2) + Math.abs(c1 - c2) ===1;
+  }
+
+  function shuffleTiles() {
+    do {
+      tiles = tiles
+        .map(t => ({value: t, sort: Math.random()}))
+        .sort((a,b) => a.sort - b.sort)
+        .map(obj => obj.value);
+    } while(!isSolvable(tiles) || isSolved(tiles));
+    renderTiles();
+    startGameTimer();
+    moveCount = 0;
+    document.getElementById('moves').textContent = 'Moves: 0';
+    gameActive = true;
+    showReward('');
+  }
+
+  function isSolvable(arr) {
+    const flattened = arr.filter(v => v !== null);
+    let inversions = 0;
+    for(let i = 0; i < flattened.length -1; i++) {
+      for(let j = i+1; j < flattened.length; j++) {
+        if(flattened[i] > flattened[j]) inversions++;
+      }
+    }
+    if(size % 2 ===1) {
+      return inversions % 2 === 0;
+    } else {
+      const emptyRow = Math.floor(arr.indexOf(null) / size);
+      return (inversions + emptyRow) % 2 ===1;
+    }
+  }
+
+  function isSolved(arr) {
+    for(let i = 0; i < arr.length -1; i++) {
+      if(arr[i] !== i+1) return false;
+    }
+    return true;
+  }
+
+  function checkWin() {
+    if(isSolved(tiles)) {
+      gameActive = false;
+      clearInterval(timerInterval);
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      const minutes = Math.floor(elapsed/60);
+      const seconds = elapsed % 60;
+      showReward(`🎉 Solved in ${minutes}m ${seconds}s with ${moveCount} moves!`);
+
+      const nextLevel = size + 1;
+      if(nextLevel <= 8) {
+        setTimeout(() => {
+          setLevel(nextLevel);
+          shuffleTiles();
+        }, 3000);
+      }
+    }
+  }
+
+  function showReward(message) {
+    const rewardDiv = document.getElementById('reward');
+    rewardDiv.textContent = message;
+    rewardDiv.style.opacity = message ? '1' : '0';
+  }
+
+  function startGameTimer() {
+    startTime = Date.now();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      const minutes = Math.floor(elapsed/60);
+      const seconds = elapsed % 60;
+      document.getElementById('timer').textContent = `⏱ Time: ${minutes}m ${seconds}s`;
+    }, 1000);
+  }
+
+  setLevel(size);
+</script>
+
+</body>
+</html>
