@@ -1,6 +1,6 @@
-# Gunies-Puzzle-Game-
-Gunies Puzzle Game 🧩🧩
 # Genius Puzzle Game 🧩
+Gunies Puzzle Game 🧩🧩
+
 
 A fun number order puzzle game built with HTML, CSS, and JavaScript.  
 
